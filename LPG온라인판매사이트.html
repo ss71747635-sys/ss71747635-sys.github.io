@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPG 가스 판매 사이트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #1a202c;
+        }
+        .container {
+            max-width: 1024px;
+            margin: auto;
+            padding: 1.5rem;
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .service-card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .service-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 25px rgba(0,0,0,0.1);
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            transform: scale(0.95);
+            animation: modalPopUp 0.3s forwards;
+            max-width: 450px;
+            width: 90%;
+        }
+        @keyframes modalPopUp {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="selection:bg-blue-200">
+
+    <div class="container">
+        <header class="text-center my-10">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">온라인 LPG 가스 판매점</h1>
+            <p class="text-lg text-gray-600">안전하고 편리한 LPG 가스 배달 서비스</p>
+            <div id="auth-status" class="mt-4 text-sm text-gray-500 flex justify-center items-center gap-2 flex-wrap">
+                <span id="loading-text" class="hidden"></span>
+                <span id="user-info" class="hidden"></span>
+                <button id="auth-btn" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hover:bg-blue-600 transition duration-300">로그인 / 회원가입</button>
+                <button id="logout-btn" class="px-4 py-2 bg-red-500 text-white font-bold rounded-full shadow-md hover:bg-red-600 transition duration-300 hidden">로그아웃</button>
+                <button id="owner-login-btn" class="px-4 py-2 bg-gray-600 text-white font-bold rounded-full shadow-md hover:bg-gray-700 transition duration-300">판매점 로그인</button>
+                <button id="view-orders-btn" class="mt-4 px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-full shadow-md hidden">내 주문 내역 보기</button>
+                <button id="manage-prices-btn" class="mt-4 px-4 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hidden">가격 수정하기</button>
+            </div>
+        </header>
+
+        <!-- 서비스 선택 섹션 -->
+        <section class="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">원하는 서비스를 선택해 주세요</h2>
+            <p class="text-md text-gray-600 mb-6">아래 서비스 중 하나를 선택하면 지역 검색이 가능합니다.</p>
+            <div id="service-selection" class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
+                <button data-service="20kg 용기" class="service-btn w-full px-6 py-4 bg-blue-100 text-blue-800 font-bold rounded-2xl shadow-md hover:bg-blue-200 transition duration-300 transform hover:scale-105">
+                    <img src="https://placehold.co/100x100/4a90e2/ffffff?text=20kg" alt="20kg Cylinder" class="mx-auto mb-2">
+                    <span>20kg 용기</span>
+                </button>
+                <button data-service="50kg 용기" class="service-btn w-full px-6 py-4 bg-blue-100 text-blue-800 font-bold rounded-2xl shadow-md hover:bg-blue-200 transition duration-300 transform hover:scale-105">
+                    <img src="https://placehold.co/100x100/f39c12/ffffff?text=50kg" alt="50kg Cylinder" class="mx-auto mb-2">
+                    <span>50kg 용기</span>
+                </button>
+                <button data-service="탱크 충전" class="service-btn w-full px-6 py-4 bg-blue-100 text-blue-800 font-bold rounded-2xl shadow-md hover:bg-blue-200 transition duration-300 transform hover:scale-105">
+                    <img src="https://placehold.co/100x100/7a7a7a/ffffff?text=Tank" alt="Tank Refill" class="mx-auto mb-2">
+                    <span>탱크 충전</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 지역 선택 및 검색 섹션 (초기 비활성화) -->
+        <section id="location-search-section" class="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center opacity-50 pointer-events-none transition duration-300">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">경상남도 LPG 가스 판매점 찾기</h2>
+            <p class="text-md text-gray-600 mb-4">시/군/구를 선택하거나 직접 입력해 주세요</p>
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                <input type="text" list="city-list" id="city-input" class="w-full sm:w-auto p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="시/군/구를 선택 또는 입력하세요">
+                <datalist id="city-list"></datalist>
+                <button id="search-btn" class="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-105">검색하기</button>
+            </div>
+        </section>
+
+        <!-- 판매점 목록 섹션 (처음에는 숨김) -->
+        <main id="provider-section" class="hidden">
+            <h2 id="provider-section-title" class="text-3xl font-bold text-gray-800 mb-6 text-center"></h2>
+            <div id="provider-grid" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 판매점 카드들이 여기에 동적으로 추가됩니다 -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="order-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title" class="text-2xl font-bold text-gray-800 mb-2"></h3>
+            <p id="modal-provider" class="text-lg text-gray-600 mb-4"></p>
+            <p class="text-gray-600 mb-6">주문 정보를 입력해주세요.</p>
+            <form id="order-form" class="space-y-4 text-left">
+                <input type="hidden" id="modal-product-name">
+                <input type="hidden" id="modal-provider-name">
+                <div>
+                    <label for="name" class="block text-gray-700 font-medium mb-1">이름</label>
+                    <input type="text" id="name" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="이름을 입력하세요" required>
+                </div>
+                <div>
+                    <label for="phone" class="block text-gray-700 font-medium mb-1">연락처</label>
+                    <input type="tel" id="phone" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="010-1234-5678" required>
+                </div>
+                <div>
+                    <label for="address" class="block text-gray-700 font-medium mb-1">주소</label>
+                    <input type="text" id="address" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="상세 주소를 입력하세요" required>
+                </div>
+                <button type="submit" class="w-full px-6 py-3 bg-green-500 text-white font-bold rounded-full shadow-md hover:bg-green-600 transition duration-300">주문 완료</button>
+            </form>
+            <button id="close-modal" class="mt-4 text-sm text-gray-500 hover:text-gray-700 transition duration-300">취소</button>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold text-green-600 mb-4">주문이 완료되었습니다!</h3>
+            <p class="text-gray-700 mb-6">담당자가 곧 연락드릴 예정입니다. 감사합니다.</p>
+            <button id="close-confirmation-modal" class="px-5 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600">확인</button>
+        </div>
+    </div>
+
+    <!-- Orders Modal -->
+    <div id="orders-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">내 주문 내역</h3>
+            <div id="orders-list" class="space-y-4 text-left max-h-96 overflow-y-auto pr-2">
+                <!-- Orders will be dynamically loaded here -->
+            </div>
+            <p id="no-orders-message" class="text-gray-500 hidden mt-4">아직 주문 내역이 없습니다.</p>
+            <button id="close-orders-modal" class="mt-6 px-5 py-2 bg-red-500 text-white rounded-full hover:bg-red-600">닫기</button>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">로그인 / 회원가입</h3>
+            <p class="text-gray-600 mb-6">이름과 휴대전화 번호를 입력해주세요.</p>
+            <form id="login-form" class="space-y-4 text-left">
+                <div>
+                    <label for="login-name" class="block text-gray-700 font-medium mb-1">이름</label>
+                    <input type="text" id="login-name" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="이름을 입력하세요" required>
+                </div>
+                <div>
+                    <label for="login-phone" class="block text-gray-700 font-medium mb-1">휴대전화</label>
+                    <input type="tel" id="login-phone" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="010-1234-5678" required>
+                </div>
+                <button type="submit" class="w-full px-6 py-3 bg-blue-500 text-white font-bold rounded-full shadow-md hover:bg-blue-600 transition duration-300">로그인</button>
+            </form>
+            <button id="close-login-modal" class="mt-4 text-sm text-gray-500 hover:text-gray-700 transition duration-300">취소</button>
+        </div>
+    </div>
+
+    <!-- Owner Login Modal -->
+    <div id="owner-login-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">판매점 로그인</h3>
+            <p class="text-gray-600 mb-6">판매점 이름과 비밀번호를 입력해주세요.</p>
+            <form id="owner-login-form" class="space-y-4 text-left">
+                <div>
+                    <label for="owner-name" class="block text-gray-700 font-medium mb-1">판매점 이름</label>
+                    <input type="text" id="owner-name" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="예: 창원 LPG 상사" required>
+                </div>
+                <div>
+                    <label for="owner-password" class="block text-gray-700 font-medium mb-1">비밀번호</label>
+                    <input type="password" id="owner-password" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="비밀번호를 입력하세요" required>
+                </div>
+                <button type="submit" class="w-full px-6 py-3 bg-gray-600 text-white font-bold rounded-full shadow-md hover:bg-gray-700 transition duration-300">로그인</button>
+            </form>
+            <button id="close-owner-modal" class="mt-4 text-sm text-gray-500 hover:text-gray-700 transition duration-300">취소</button>
+        </div>
+    </div>
+
+    <!-- Manage Prices Modal -->
+    <div id="manage-prices-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">가격 수정</h3>
+            <p id="owner-greeting" class="text-gray-600 mb-6"></p>
+            <form id="prices-form" class="space-y-4 text-left">
+                <div>
+                    <label for="price-20kg" class="block text-gray-700 font-medium mb-1">20kg 용기 가격 (원)</label>
+                    <input type="text" id="price-20kg" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="price-50kg" class="block text-gray-700 font-medium mb-1">50kg 용기 가격 (원)</label>
+                    <input type="text" id="price-50kg" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="price-tank" class="block text-gray-700 font-medium mb-1">탱크 충전 가격 (원)</label>
+                    <input type="text" id="price-tank" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <button type="submit" class="w-full px-6 py-3 bg-green-500 text-white font-bold rounded-full shadow-md hover:bg-green-600 transition duration-300">가격 저장</button>
+            </form>
+            <button id="close-prices-modal" class="mt-4 text-sm text-gray-500 hover:text-gray-700 transition duration-300">취소</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, userId;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        
+        // Log authentication status
+        console.log("Setting up authentication listener...");
+
+        // UI Elements
+        const loadingText = document.getElementById('loading-text');
+        const userInfoSpan = document.getElementById('user-info');
+        const authBtn = document.getElementById('auth-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const ownerLoginBtn = document.getElementById('owner-login-btn');
+        const viewOrdersBtn = document.getElementById('view-orders-btn');
+        const managePricesBtn = document.getElementById('manage-prices-btn');
+        const ordersModal = document.getElementById('orders-modal');
+        const ordersList = document.getElementById('orders-list');
+        const noOrdersMessage = document.getElementById('no-orders-message');
+        const closeOrdersModalBtn = document.getElementById('close-orders-modal');
+        const loginModal = document.getElementById('login-modal');
+        const closeLoginModalBtn = document.getElementById('close-login-modal');
+        const loginForm = document.getElementById('login-form');
+        const loginNameInput = document.getElementById('login-name');
+        const loginPhoneInput = document.getElementById('login-phone');
+        const ownerLoginModal = document.getElementById('owner-login-modal');
+        const closeOwnerModalBtn = document.getElementById('close-owner-modal');
+        const ownerLoginForm = document.getElementById('owner-login-form');
+        const ownerNameInput = document.getElementById('owner-name');
+        const ownerPasswordInput = document.getElementById('owner-password');
+        const managePricesModal = document.getElementById('manage-prices-modal');
+        const closePricesModalBtn = document.getElementById('close-prices-modal');
+        const pricesForm = document.getElementById('prices-form');
+        const ownerGreeting = document.getElementById('owner-greeting');
+        
+        // Firestore Listener
+        let ordersUnsubscribe = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("User signed in with UID:", userId);
+                loadingText.classList.add('hidden');
+                userInfoSpan.textContent = `User ID: ${userId}`;
+                userInfoSpan.classList.remove('hidden');
+                viewOrdersBtn.classList.remove('hidden');
+                authBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+
+                // Set up Firestore listener for orders
+                if (ordersUnsubscribe) {
+                    ordersUnsubscribe();
+                }
+                const ordersRef = collection(db, `artifacts/${appId}/users/${userId}/orders`);
+                ordersUnsubscribe = onSnapshot(ordersRef, (snapshot) => {
+                    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    displayOrders(orders);
+                }, (error) => {
+                    console.error("Error getting real-time orders:", error);
+                });
+            } else {
+                console.log("No user signed in. Signing in anonymously...");
+                loadingText.classList.remove('hidden');
+                userInfoSpan.classList.add('hidden');
+                viewOrdersBtn.classList.add('hidden');
+                authBtn.classList.add('hidden');
+                logoutBtn.classList.add('hidden');
+                
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Signed in with custom token.");
+                    } else {
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously.");
+                    }
+                } catch (error) {
+                    console.error("Authentication Error:", error);
+                    loadingText.textContent = '인증 실패';
+                }
+            }
+        });
+        
+        // --- Simulated Login/Logout & UI Logic ---
+        function checkOwnerStatus() {
+            const ownerName = sessionStorage.getItem('ownerName');
+            if (ownerName) {
+                ownerGreeting.textContent = `${ownerName} 사장님, 환영합니다.`;
+                ownerLoginBtn.classList.add('hidden');
+                managePricesBtn.classList.remove('hidden');
+            } else {
+                ownerLoginBtn.classList.remove('hidden');
+                managePricesBtn.classList.add('hidden');
+            }
+        }
+        
+        // Initial check on page load
+        checkOwnerStatus();
+        
+        // Normal user login is now handled by Firebase, but we keep the modal for simulation.
+        authBtn.addEventListener('click', () => {
+            // This button is hidden when a user is logged in via Firebase
+            loginModal.style.display = 'flex';
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            if (auth.currentUser) {
+                await auth.signOut();
+                console.log("User signed out.");
+            }
+            // Clear simulated owner login as well
+            sessionStorage.removeItem('ownerName');
+            checkOwnerStatus();
+            alert("로그아웃 되었습니다.");
+            // Reload the page to ensure all state is reset
+            location.reload();
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // This part is now just a formality. Firebase handles the actual auth.
+            loginModal.style.display = 'none';
+            loginForm.reset();
+        });
+        
+        closeLoginModalBtn.addEventListener('click', () => {
+            loginModal.style.display = 'none';
+            loginForm.reset();
+        });
+
+        ownerLoginBtn.addEventListener('click', () => {
+            ownerLoginModal.style.display = 'flex';
+        });
+
+        closeOwnerModalBtn.addEventListener('click', () => {
+            ownerLoginModal.style.display = 'none';
+            ownerLoginForm.reset();
+        });
+        
+        ownerLoginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const ownerName = ownerNameInput.value;
+            const ownerPassword = ownerPasswordInput.value;
+
+            // Simple hardcoded owner login simulation
+            if (ownerName === '창원 LPG 상사' && ownerPassword === '1234') {
+                sessionStorage.setItem('ownerName', ownerName);
+                ownerLoginModal.style.display = 'none';
+                ownerLoginForm.reset();
+                checkOwnerStatus();
+            } else {
+                alert("판매점 이름 또는 비밀번호가 올바르지 않습니다.");
+            }
+        });
+
+        managePricesBtn.addEventListener('click', () => {
+            const currentPrices = JSON.parse(sessionStorage.getItem('prices') || '{}');
+            document.getElementById('price-20kg').value = currentPrices['20kg 용기'] || '82,000';
+            document.getElementById('price-50kg').value = currentPrices['50kg 용기'] || '185,000';
+            document.getElementById('price-tank').value = currentPrices['탱크 충전'] || '별도 문의';
+            managePricesModal.style.display = 'flex';
+        });
+
+        closePricesModalBtn.addEventListener('click', () => {
+            managePricesModal.style.display = 'none';
+        });
+
+        pricesForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newPrices = {
+                '20kg 용기': document.getElementById('price-20kg').value,
+                '50kg 용기': document.getElementById('price-50kg').value,
+                '탱크 충전': document.getElementById('price-tank').value
+            };
+            sessionStorage.setItem('prices', JSON.stringify(newPrices));
+            alert('가격이 성공적으로 수정되었습니다.');
+            managePricesModal.style.display = 'none';
+            
+            // Reload the page or update the UI to show new prices
+            location.reload();
+        });
+
+
+        // --- Existing LPG Sales Site Logic ---
+        const providers = [
+            { province: '경상남도', city: '창원시', region: '의창구', name: '창원 LPG 상사', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '창원시', region: '성산구', name: '성산가스 배달센터', services: ['20kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '창원시', region: '마산합포구', name: '마산 LPG 허브', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '김해시', region: '김해시', name: '김해시 가스', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '양산시', region: '양산시', name: '양산 가스 센터', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '밀양시', region: '밀양시', name: '밀양 LPG 상회', services: ['20kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '거제 가스 배달', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '통영시', region: '통영시', name: '통영 가스', services: ['20kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '사천시', region: '사천시', name: '사천시 가스 판매소', services: ['50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '진주시', region: '진주시', name: '진주 LPG', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '거창군', region: '거창군', name: '거창군 가스', services: ['20kg 용기'] },
+            { province: '경상남도', city: '함양군', region: '함양군', name: '함양군 가스 상사', services: ['10kg', '20kg 용기'] },
+            { province: '경상남도', city: '합천군', region: '합천군', name: '합천군 가스', services: ['20kg 용기'] },
+            { province: '경상남도', city: '산청군', region: '산청군', name: '산청 가스 센터', services: ['50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '의령군', region: '의령군', name: '의령군 가스', services: ['20kg 용기'] },
+            { province: '경상남도', city: '창녕군', region: '창녕군', name: '창녕군 LPG', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '하동군', region: '하동군', name: '하동군 가스', services: ['50kg 용기'] },
+            { province: '경상남도', city: '고성군', region: '고성군', name: '고성 가스', services: ['20kg 용기'] },
+            { province: '경상남도', city: '남해군', region: '남해군', name: '남해군 LPG', services: ['20kg 용기', '50kg 용기'] }
+        ];
+
+        let prices = {
+            '20kg 용기': '82,000원',
+            '50kg 용기': '185,000원',
+            '탱크 충전': '별도 문의'
+        };
+
+        // Check for saved prices in sessionStorage on page load
+        const savedPrices = JSON.parse(sessionStorage.getItem('prices'));
+        if (savedPrices) {
+            prices = savedPrices;
+        }
+
+        const cityInput = document.getElementById('city-input');
+        const cityList = document.getElementById('city-list');
+        const searchBtn = document.getElementById('search-btn');
+        const providerSection = document.getElementById('provider-section');
+        const providerSectionTitle = document.getElementById('provider-section-title');
+        const providerGrid = document.getElementById('provider-grid');
+        const orderModal = document.getElementById('order-modal');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const closeConfirmationModalBtn = document.getElementById('close-confirmation-modal');
+        const orderForm = document.getElementById('order-form');
+        const modalTitle = document.getElementById('modal-title');
+        const modalProvider = document.getElementById('modal-provider');
+        const modalProductNameInput = document.getElementById('modal-product-name');
+        const modalProviderNameInput = document.getElementById('modal-provider-name');
+        const serviceButtons = document.querySelectorAll('.service-btn');
+        const locationSearchSection = document.getElementById('location-search-section');
+
+        let selectedService = null;
+
+        const provinceToFilter = '경상남도';
+        const cities = [...new Set(providers.filter(p => p.province === provinceToFilter).map(p => p.city))];
+        cities.forEach(city => {
+            const option = document.createElement('option');
+            option.value = city;
+            cityList.appendChild(option);
+        });
+        
+        serviceButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                serviceButtons.forEach(btn => btn.classList.remove('bg-blue-600', 'text-white'));
+                serviceButtons.forEach(btn => btn.classList.add('bg-blue-100', 'text-blue-800'));
+                button.classList.remove('bg-blue-100', 'text-blue-800');
+                button.classList.add('bg-blue-600', 'text-white');
+                selectedService = button.dataset.service;
+                locationSearchSection.classList.remove('opacity-50', 'pointer-events-none');
+                providerSection.classList.add('hidden');
+                providerGrid.innerHTML = '';
+            });
+        });
+
+        searchBtn.addEventListener('click', () => {
+            const selectedCity = cityInput.value;
+            
+            if (selectedCity && selectedService) {
+                displayProviders(provinceToFilter, selectedCity, selectedService);
+            }
+        });
+
+        function displayProviders(province, city, service) {
+            providerGrid.innerHTML = '';
+            providerSectionTitle.textContent = `${province} ${city}에서 ${service}를 제공하는 판매점 목록`;
+            const filteredProviders = providers.filter(p => 
+                p.province === province && 
+                p.city === city && 
+                p.services.includes(service)
+            );
+
+            if (filteredProviders.length > 0) {
+                filteredProviders.forEach(provider => {
+                    const providerCard = document.createElement('div');
+                    providerCard.className = 'bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center text-center';
+                    providerCard.innerHTML = `
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">${provider.name}</h3>
+                        <p class="text-gray-500 mb-4">제공 서비스: ${provider.services.join(', ')}</p>
+                        <div class="my-4">
+                            <h4 class="text-xl font-bold text-gray-700 mb-1">${service}</h4>
+                            <span class="text-2xl font-extrabold text-blue-600 mb-4">${prices[service]}</span>
+                        </div>
+                        <button data-provider="${provider.name}" class="order-btn w-full px-4 py-2 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition duration-300">주문하기</button>
+                    `;
+                    providerGrid.appendChild(providerCard);
+                });
+                providerSection.classList.remove('hidden');
+                attachOrderButtonListeners();
+            } else {
+                providerGrid.innerHTML = '<p class="text-center text-lg text-gray-500">선택한 지역에 등록된 판매점이 없습니다.</p>';
+                providerSection.classList.remove('hidden');
+            }
+        }
+
+        function attachOrderButtonListeners() {
+            document.querySelectorAll('.order-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const providerName = btn.dataset.provider;
+                    modalTitle.textContent = `${selectedService} 주문`;
+                    modalProvider.textContent = `판매점: ${providerName}`;
+                    modalProductNameInput.value = selectedService;
+                    modalProviderNameInput.value = providerName;
+                    orderModal.style.display = 'flex';
+                });
+            });
+        }
+
+        // Close modal when close button is clicked
+        closeModalBtn.addEventListener('click', () => {
+            orderModal.style.display = 'none';
+        });
+
+        // Close confirmation modal
+        closeConfirmationModalBtn.addEventListener('click', () => {
+            confirmationModal.style.display = 'none';
+            orderModal.style.display = 'none';
+            orderForm.reset();
+        });
+
+        // Close orders modal
+        closeOrdersModalBtn.addEventListener('click', () => {
+            ordersModal.style.display = 'none';
+        });
+
+        // Open orders modal
+        viewOrdersBtn.addEventListener('click', () => {
+            ordersModal.style.display = 'flex';
+            // orders are displayed via onSnapshot listener, no need to call a function here
+        });
+
+        function displayOrders(orders) {
+            ordersList.innerHTML = '';
+            if (orders.length === 0) {
+                noOrdersMessage.classList.remove('hidden');
+            } else {
+                noOrdersMessage.classList.add('hidden');
+                orders.forEach(order => {
+                    const orderItem = document.createElement('div');
+                    orderItem.className = 'bg-gray-50 p-4 rounded-lg shadow-sm';
+                    orderItem.innerHTML = `
+                        <p class="font-bold text-gray-800">${order.product} 주문</p>
+                        <p class="text-sm text-gray-600">판매점: ${order.provider}</p>
+                        <p class="text-sm text-gray-600">이름: ${order.name}</p>
+                        <p class="text-sm text-gray-600">연락처: ${order.phone}</p>
+                        <p class="text-sm text-gray-600">주소: ${order.address}</p>
+                    `;
+                    ordersList.appendChild(orderItem);
+                });
+            }
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target === orderModal) {
+                orderModal.style.display = 'none';
+            }
+            if (event.target === confirmationModal) {
+                confirmationModal.style.display = 'none';
+            }
+            if (event.target === ordersModal) {
+                ordersModal.style.display = 'none';
+            }
+            if (event.target === loginModal) {
+                loginModal.style.display = 'none';
+            }
+            if (event.target === ownerLoginModal) {
+                ownerLoginModal.style.display = 'none';
+            }
+            if (event.target === managePricesModal) {
+                managePricesModal.style.display = 'none';
+            }
+        });
+
+        // Handle form submission and save to Firestore
+        orderForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const orderData = {
+                product: modalProductNameInput.value,
+                provider: modalProviderNameInput.value,
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                address: document.getElementById('address').value,
+                timestamp: new Date()
+            };
+
+            if (userId) {
+                try {
+                    const ordersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/orders`);
+                    await addDoc(ordersCollectionRef, orderData);
+                    console.log("Order saved to Firestore:", orderData);
+                } catch (error) {
+                    console.error("Error saving order:", error);
+                }
+            } else {
+                console.warn("User not authenticated. Order not saved to Firestore.");
+            }
+
+            confirmationModal.style.display = 'flex';
+        });
+    </script>
+</body>
+</html>
