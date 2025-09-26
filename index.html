@@ -78,7 +78,7 @@
         </header>
 
         <!-- 서비스 선택 섹션 -->
-        <section class="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center">
+        <section id="service-selection-section" class="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center opacity-50 pointer-events-none transition duration-300">
             <h2 class="text-2xl font-bold text-gray-800 mb-2">원하는 서비스를 선택해 주세요</h2>
             <p class="text-md text-gray-600 mb-6">아래 서비스 중 하나를 선택하면 지역 검색이 가능합니다.</p>
             <div id="service-selection" class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
@@ -240,6 +240,7 @@
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db, auth, userId;
+        let isAuthReady = false;
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -282,6 +283,7 @@
         const providerSectionTitle = document.getElementById('provider-section-title');
         const providerGrid = document.getElementById('provider-grid');
         const locationSearchSection = document.getElementById('location-search-section');
+        const serviceSelectionSection = document.getElementById('service-selection-section');
 
         // Firestore Listener
         let ordersUnsubscribe = null;
@@ -294,6 +296,7 @@
                 userInfoSpan.classList.remove('hidden');
                 viewOrdersBtn.classList.remove('hidden');
                 logoutBtn.classList.remove('hidden');
+                serviceSelectionSection.classList.remove('opacity-50', 'pointer-events-none');
                 
                 if (ordersUnsubscribe) {
                     ordersUnsubscribe();
@@ -310,6 +313,7 @@
                 userInfoSpan.classList.add('hidden');
                 viewOrdersBtn.classList.add('hidden');
                 logoutBtn.classList.add('hidden');
+                serviceSelectionSection.classList.add('opacity-50', 'pointer-events-none');
                 
                 try {
                     if (initialAuthToken) {
@@ -349,17 +353,17 @@
                 sessionStorage.setItem('ownerName', ownerName);
                 ownerLoginModal.style.display = 'none';
                 ownerLoginForm.reset();
+                alert("판매점 로그인이 완료되었습니다.");
                 checkOwnerStatus();
             } else {
-                // 커스텀 메시지 박스로 대체
                 alert("판매점 이름 또는 비밀번호가 올바르지 않습니다.");
             }
         });
         
         managePricesBtn.addEventListener('click', () => {
             const currentPrices = JSON.parse(sessionStorage.getItem('prices') || '{}');
-            document.getElementById('price-20kg').value = currentPrices['20kg 용기'] || prices['20kg 용기'].replace('원', '');
-            document.getElementById('price-50kg').value = currentPrices['50kg 용기'] || prices['50kg 용기'].replace('원', '');
+            document.getElementById('price-20kg').value = currentPrices['20kg 용기'] ? currentPrices['20kg 용기'].replace('원', '') : prices['20kg 용기'].replace('원', '');
+            document.getElementById('price-50kg').value = currentPrices['50kg 용기'] ? currentPrices['50kg 용기'].replace('원', '') : prices['50kg 용기'].replace('원', '');
             document.getElementById('price-tank').value = currentPrices['탱크 충전'] || prices['탱크 충전'];
             managePricesModal.style.display = 'flex';
         });
@@ -374,7 +378,6 @@
                 '탱크 충전': document.getElementById('price-tank').value
             };
             sessionStorage.setItem('prices', JSON.stringify(newPrices));
-            // 커스텀 메시지 박스로 대체
             alert('가격이 성공적으로 수정되었습니다.');
             managePricesModal.style.display = 'none';
             location.reload();
@@ -561,4 +564,3 @@
     </script>
 </body>
 </html>
-
