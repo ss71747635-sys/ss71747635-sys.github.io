@@ -65,13 +65,15 @@
             <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">온라인 LPG 가스 판매점</h1>
             <p class="text-lg text-gray-600">안전하고 편리한 LPG 가스 배달 서비스</p>
             <div id="auth-status" class="mt-4 text-sm text-gray-500 flex justify-center items-center gap-2 flex-wrap">
-                <span id="loading-text" class="hidden"></span>
+                <!-- User ID와 로그인 상태를 표시하는 요소 (익명 로그인으로 자동 표시) -->
+                <span id="loading-text" class="text-gray-500">인증 중...</span>
                 <span id="user-info" class="hidden"></span>
-                <button id="auth-btn" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hover:bg-blue-600 transition duration-300">로그인 / 회원가입</button>
-                <button id="logout-btn" class="px-4 py-2 bg-red-500 text-white font-bold rounded-full shadow-md hover:bg-red-600 transition duration-300 hidden">로그아웃</button>
-                <button id="owner-login-btn" class="px-4 py-2 bg-gray-600 text-white font-bold rounded-full shadow-md hover:bg-gray-700 transition duration-300">판매점 로그인</button>
                 <button id="view-orders-btn" class="mt-4 px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-full shadow-md hidden">내 주문 내역 보기</button>
-                <button id="manage-prices-btn" class="mt-4 px-4 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hidden">가격 수정하기</button>
+                <button id="logout-btn" class="px-4 py-2 bg-red-500 text-white font-bold rounded-full shadow-md hover:bg-red-600 transition duration-300 hidden">로그아웃</button>
+                
+                <!-- 판매점 로그인 버튼 (시뮬레이션) -->
+                <button id="owner-login-btn" class="px-4 py-2 bg-gray-600 text-white font-bold rounded-full shadow-md hover:bg-gray-700 transition duration-300">판매점 로그인</button>
+                <button id="manage-prices-btn" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hidden hover:bg-blue-600 transition duration-300">가격 수정하기</button>
             </div>
         </header>
 
@@ -229,41 +231,31 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, addDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global variables provided by the environment
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Firebase Configuration and Global Variables
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db, auth, userId;
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-        
-        // Log authentication status
-        console.log("Setting up authentication listener...");
 
         // UI Elements
         const loadingText = document.getElementById('loading-text');
         const userInfoSpan = document.getElementById('user-info');
-        const authBtn = document.getElementById('auth-btn');
+        const viewOrdersBtn = document.getElementById('view-orders-btn');
         const logoutBtn = document.getElementById('logout-btn');
         const ownerLoginBtn = document.getElementById('owner-login-btn');
-        const viewOrdersBtn = document.getElementById('view-orders-btn');
         const managePricesBtn = document.getElementById('manage-prices-btn');
         const ordersModal = document.getElementById('orders-modal');
         const ordersList = document.getElementById('orders-list');
         const noOrdersMessage = document.getElementById('no-orders-message');
         const closeOrdersModalBtn = document.getElementById('close-orders-modal');
-        const loginModal = document.getElementById('login-modal');
-        const closeLoginModalBtn = document.getElementById('close-login-modal');
-        const loginForm = document.getElementById('login-form');
-        const loginNameInput = document.getElementById('login-name');
-        const loginPhoneInput = document.getElementById('login-phone');
         const ownerLoginModal = document.getElementById('owner-login-modal');
         const closeOwnerModalBtn = document.getElementById('close-owner-modal');
         const ownerLoginForm = document.getElementById('owner-login-form');
@@ -273,22 +265,36 @@
         const closePricesModalBtn = document.getElementById('close-prices-modal');
         const pricesForm = document.getElementById('prices-form');
         const ownerGreeting = document.getElementById('owner-greeting');
-        
+        const orderModal = document.getElementById('order-modal');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const closeConfirmationModalBtn = document.getElementById('close-confirmation-modal');
+        const orderForm = document.getElementById('order-form');
+        const modalTitle = document.getElementById('modal-title');
+        const modalProvider = document.getElementById('modal-provider');
+        const modalProductNameInput = document.getElementById('modal-product-name');
+        const modalProviderNameInput = document.getElementById('modal-provider-name');
+        const serviceButtons = document.querySelectorAll('.service-btn');
+        const cityInput = document.getElementById('city-input');
+        const cityList = document.getElementById('city-list');
+        const searchBtn = document.getElementById('search-btn');
+        const providerSection = document.getElementById('provider-section');
+        const providerSectionTitle = document.getElementById('provider-section-title');
+        const providerGrid = document.getElementById('provider-grid');
+        const locationSearchSection = document.getElementById('location-search-section');
+
         // Firestore Listener
         let ordersUnsubscribe = null;
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 userId = user.uid;
-                console.log("User signed in with UID:", userId);
                 loadingText.classList.add('hidden');
-                userInfoSpan.textContent = `User ID: ${userId}`;
+                userInfoSpan.textContent = `사용자 ID: ${userId}`;
                 userInfoSpan.classList.remove('hidden');
                 viewOrdersBtn.classList.remove('hidden');
-                authBtn.classList.add('hidden');
                 logoutBtn.classList.remove('hidden');
-
-                // Set up Firestore listener for orders
+                
                 if (ordersUnsubscribe) {
                     ordersUnsubscribe();
                 }
@@ -300,20 +306,16 @@
                     console.error("Error getting real-time orders:", error);
                 });
             } else {
-                console.log("No user signed in. Signing in anonymously...");
-                loadingText.classList.remove('hidden');
+                loadingText.textContent = '인증 중...';
                 userInfoSpan.classList.add('hidden');
                 viewOrdersBtn.classList.add('hidden');
-                authBtn.classList.add('hidden');
                 logoutBtn.classList.add('hidden');
                 
                 try {
                     if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
-                        console.log("Signed in with custom token.");
                     } else {
                         await signInAnonymously(auth);
-                        console.log("Signed in anonymously.");
                     }
                 } catch (error) {
                     console.error("Authentication Error:", error);
@@ -322,7 +324,7 @@
             }
         });
         
-        // --- Simulated Login/Logout & UI Logic ---
+        // --- 시뮬레이션된 판매점 로그인 ---
         function checkOwnerStatus() {
             const ownerName = sessionStorage.getItem('ownerName');
             if (ownerName) {
@@ -334,95 +336,58 @@
                 managePricesBtn.classList.add('hidden');
             }
         }
-        
-        // Initial check on page load
         checkOwnerStatus();
         
-        // Normal user login is now handled by Firebase, but we keep the modal for simulation.
-        authBtn.addEventListener('click', () => {
-            // This button is hidden when a user is logged in via Firebase
-            loginModal.style.display = 'flex';
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            if (auth.currentUser) {
-                await auth.signOut();
-                console.log("User signed out.");
-            }
-            // Clear simulated owner login as well
-            sessionStorage.removeItem('ownerName');
-            checkOwnerStatus();
-            alert("로그아웃 되었습니다.");
-            // Reload the page to ensure all state is reset
-            location.reload();
-        });
-
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            // This part is now just a formality. Firebase handles the actual auth.
-            loginModal.style.display = 'none';
-            loginForm.reset();
-        });
-        
-        closeLoginModalBtn.addEventListener('click', () => {
-            loginModal.style.display = 'none';
-            loginForm.reset();
-        });
-
-        ownerLoginBtn.addEventListener('click', () => {
-            ownerLoginModal.style.display = 'flex';
-        });
-
-        closeOwnerModalBtn.addEventListener('click', () => {
-            ownerLoginModal.style.display = 'none';
-            ownerLoginForm.reset();
-        });
+        ownerLoginBtn.addEventListener('click', () => { ownerLoginModal.style.display = 'flex'; });
+        closeOwnerModalBtn.addEventListener('click', () => { ownerLoginModal.style.display = 'none'; ownerLoginForm.reset(); });
         
         ownerLoginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const ownerName = ownerNameInput.value;
             const ownerPassword = ownerPasswordInput.value;
-
-            // Simple hardcoded owner login simulation
             if (ownerName === '창원 LPG 상사' && ownerPassword === '1234') {
                 sessionStorage.setItem('ownerName', ownerName);
                 ownerLoginModal.style.display = 'none';
                 ownerLoginForm.reset();
                 checkOwnerStatus();
             } else {
+                // 커스텀 메시지 박스로 대체
                 alert("판매점 이름 또는 비밀번호가 올바르지 않습니다.");
             }
         });
-
+        
         managePricesBtn.addEventListener('click', () => {
             const currentPrices = JSON.parse(sessionStorage.getItem('prices') || '{}');
-            document.getElementById('price-20kg').value = currentPrices['20kg 용기'] || '82,000';
-            document.getElementById('price-50kg').value = currentPrices['50kg 용기'] || '185,000';
-            document.getElementById('price-tank').value = currentPrices['탱크 충전'] || '별도 문의';
+            document.getElementById('price-20kg').value = currentPrices['20kg 용기'] || prices['20kg 용기'].replace('원', '');
+            document.getElementById('price-50kg').value = currentPrices['50kg 용기'] || prices['50kg 용기'].replace('원', '');
+            document.getElementById('price-tank').value = currentPrices['탱크 충전'] || prices['탱크 충전'];
             managePricesModal.style.display = 'flex';
         });
 
-        closePricesModalBtn.addEventListener('click', () => {
-            managePricesModal.style.display = 'none';
-        });
+        closePricesModalBtn.addEventListener('click', () => { managePricesModal.style.display = 'none'; });
 
         pricesForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newPrices = {
-                '20kg 용기': document.getElementById('price-20kg').value,
-                '50kg 용기': document.getElementById('price-50kg').value,
+                '20kg 용기': document.getElementById('price-20kg').value + '원',
+                '50kg 용기': document.getElementById('price-50kg').value + '원',
                 '탱크 충전': document.getElementById('price-tank').value
             };
             sessionStorage.setItem('prices', JSON.stringify(newPrices));
+            // 커스텀 메시지 박스로 대체
             alert('가격이 성공적으로 수정되었습니다.');
             managePricesModal.style.display = 'none';
-            
-            // Reload the page or update the UI to show new prices
             location.reload();
         });
 
+        // --- 기존 웹사이트 로직 ---
+        let selectedService = null;
+        let prices = {
+            '20kg 용기': '82,000원',
+            '50kg 용기': '185,000원',
+            '탱크 충전': '별도 문의'
+        };
 
-        // --- Existing LPG Sales Site Logic ---
         const providers = [
             { province: '경상남도', city: '창원시', region: '의창구', name: '창원 LPG 상사', services: ['20kg 용기', '50kg 용기'] },
             { province: '경상남도', city: '창원시', region: '성산구', name: '성산가스 배달센터', services: ['20kg 용기', '탱크 충전'] },
@@ -430,7 +395,14 @@
             { province: '경상남도', city: '김해시', region: '김해시', name: '김해시 가스', services: ['20kg 용기', '50kg 용기'] },
             { province: '경상남도', city: '양산시', region: '양산시', name: '양산 가스 센터', services: ['20kg 용기', '50kg 용기'] },
             { province: '경상남도', city: '밀양시', region: '밀양시', name: '밀양 LPG 상회', services: ['20kg 용기', '탱크 충전'] },
-            { province: '경상남도', city: '거제시', region: '거제시', name: '거제 가스 배달', services: ['20kg 용기', '50kg 용기'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '거제종합가스', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '한려종합가스', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '옥산충전소', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '브로맨스에너지', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '옥포종합가스', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '엘림가스산업', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '둔덕가스', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
+            { province: '경상남도', city: '거제시', region: '거제시', name: '거제에너지', services: ['20kg 용기', '50kg 용기', '탱크 충전'] },
             { province: '경상남도', city: '통영시', region: '통영시', name: '통영 가스', services: ['20kg 용기', '탱크 충전'] },
             { province: '경상남도', city: '사천시', region: '사천시', name: '사천시 가스 판매소', services: ['50kg 용기', '탱크 충전'] },
             { province: '경상남도', city: '진주시', region: '진주시', name: '진주 LPG', services: ['20kg 용기', '50kg 용기'] },
@@ -445,37 +417,11 @@
             { province: '경상남도', city: '남해군', region: '남해군', name: '남해군 LPG', services: ['20kg 용기', '50kg 용기'] }
         ];
 
-        let prices = {
-            '20kg 용기': '82,000원',
-            '50kg 용기': '185,000원',
-            '탱크 충전': '별도 문의'
-        };
-
-        // Check for saved prices in sessionStorage on page load
+        // 페이지 로드 시 저장된 가격 불러오기
         const savedPrices = JSON.parse(sessionStorage.getItem('prices'));
         if (savedPrices) {
             prices = savedPrices;
         }
-
-        const cityInput = document.getElementById('city-input');
-        const cityList = document.getElementById('city-list');
-        const searchBtn = document.getElementById('search-btn');
-        const providerSection = document.getElementById('provider-section');
-        const providerSectionTitle = document.getElementById('provider-section-title');
-        const providerGrid = document.getElementById('provider-grid');
-        const orderModal = document.getElementById('order-modal');
-        const confirmationModal = document.getElementById('confirmation-modal');
-        const closeModalBtn = document.getElementById('close-modal');
-        const closeConfirmationModalBtn = document.getElementById('close-confirmation-modal');
-        const orderForm = document.getElementById('order-form');
-        const modalTitle = document.getElementById('modal-title');
-        const modalProvider = document.getElementById('modal-provider');
-        const modalProductNameInput = document.getElementById('modal-product-name');
-        const modalProviderNameInput = document.getElementById('modal-provider-name');
-        const serviceButtons = document.querySelectorAll('.service-btn');
-        const locationSearchSection = document.getElementById('location-search-section');
-
-        let selectedService = null;
 
         const provinceToFilter = '경상남도';
         const cities = [...new Set(providers.filter(p => p.province === provinceToFilter).map(p => p.city))];
@@ -500,7 +446,6 @@
 
         searchBtn.addEventListener('click', () => {
             const selectedCity = cityInput.value;
-            
             if (selectedCity && selectedService) {
                 displayProviders(provinceToFilter, selectedCity, selectedService);
             }
@@ -550,77 +495,25 @@
                 });
             });
         }
+        
+        // --- 모달 창 관련 로직 ---
+        closeModalBtn.addEventListener('click', () => { orderModal.style.display = 'none'; });
+        closeConfirmationModalBtn.addEventListener('click', () => { confirmationModal.style.display = 'none'; orderModal.style.display = 'none'; orderForm.reset(); });
+        closeOrdersModalBtn.addEventListener('click', () => { ordersModal.style.display = 'none'; });
+        viewOrdersBtn.addEventListener('click', () => { ordersModal.style.display = 'flex'; });
 
-        // Close modal when close button is clicked
-        closeModalBtn.addEventListener('click', () => {
-            orderModal.style.display = 'none';
-        });
-
-        // Close confirmation modal
-        closeConfirmationModalBtn.addEventListener('click', () => {
-            confirmationModal.style.display = 'none';
-            orderModal.style.display = 'none';
-            orderForm.reset();
-        });
-
-        // Close orders modal
-        closeOrdersModalBtn.addEventListener('click', () => {
-            ordersModal.style.display = 'none';
-        });
-
-        // Open orders modal
-        viewOrdersBtn.addEventListener('click', () => {
-            ordersModal.style.display = 'flex';
-            // orders are displayed via onSnapshot listener, no need to call a function here
-        });
-
-        function displayOrders(orders) {
-            ordersList.innerHTML = '';
-            if (orders.length === 0) {
-                noOrdersMessage.classList.remove('hidden');
-            } else {
-                noOrdersMessage.classList.add('hidden');
-                orders.forEach(order => {
-                    const orderItem = document.createElement('div');
-                    orderItem.className = 'bg-gray-50 p-4 rounded-lg shadow-sm';
-                    orderItem.innerHTML = `
-                        <p class="font-bold text-gray-800">${order.product} 주문</p>
-                        <p class="text-sm text-gray-600">판매점: ${order.provider}</p>
-                        <p class="text-sm text-gray-600">이름: ${order.name}</p>
-                        <p class="text-sm text-gray-600">연락처: ${order.phone}</p>
-                        <p class="text-sm text-gray-600">주소: ${order.address}</p>
-                    `;
-                    ordersList.appendChild(orderItem);
-                });
-            }
-        }
-
-        // Close modal when clicking outside
+        // 모달창 바깥 클릭 시 닫기
         window.addEventListener('click', (event) => {
-            if (event.target === orderModal) {
-                orderModal.style.display = 'none';
-            }
-            if (event.target === confirmationModal) {
-                confirmationModal.style.display = 'none';
-            }
-            if (event.target === ordersModal) {
-                ordersModal.style.display = 'none';
-            }
-            if (event.target === loginModal) {
-                loginModal.style.display = 'none';
-            }
-            if (event.target === ownerLoginModal) {
-                ownerLoginModal.style.display = 'none';
-            }
-            if (event.target === managePricesModal) {
-                managePricesModal.style.display = 'none';
-            }
+            if (event.target === orderModal) { orderModal.style.display = 'none'; }
+            if (event.target === confirmationModal) { confirmationModal.style.display = 'none'; }
+            if (event.target === ordersModal) { ordersModal.style.display = 'none'; }
+            if (event.target === ownerLoginModal) { ownerLoginModal.style.display = 'none'; }
+            if (event.target === managePricesModal) { managePricesModal.style.display = 'none'; }
         });
-
-        // Handle form submission and save to Firestore
+        
+        // 주문 폼 제출 및 Firestore 저장
         orderForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            
             const orderData = {
                 product: modalProductNameInput.value,
                 provider: modalProviderNameInput.value,
@@ -641,9 +534,31 @@
             } else {
                 console.warn("User not authenticated. Order not saved to Firestore.");
             }
-
             confirmationModal.style.display = 'flex';
         });
+        
+        // 주문 내역 표시
+        function displayOrders(orders) {
+            ordersList.innerHTML = '';
+            if (orders.length === 0) {
+                noOrdersMessage.classList.remove('hidden');
+            } else {
+                noOrdersMessage.classList.add('hidden');
+                orders.forEach(order => {
+                    const orderItem = document.createElement('div');
+                    orderItem.className = 'bg-gray-50 p-4 rounded-lg shadow-sm';
+                    orderItem.innerHTML = `
+                        <p class="font-bold text-gray-800">${order.product} 주문</p>
+                        <p class="text-sm text-gray-600">판매점: ${order.provider}</p>
+                        <p class="text-sm text-gray-600">이름: ${order.name}</p>
+                        <p class="text-sm text-gray-600">연락처: ${order.phone}</p>
+                        <p class="text-sm text-gray-600">주소: ${order.address}</p>
+                    `;
+                    ordersList.appendChild(orderItem);
+                });
+            }
+        }
     </script>
 </body>
 </html>
+
